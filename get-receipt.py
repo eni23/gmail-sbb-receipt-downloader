@@ -3,7 +3,9 @@
 
 
 import os
+import glob
 import base64
+import datetime
 import argparse
 import httplib2
 import urllib.request
@@ -46,14 +48,17 @@ def get_credentials():
 
 
 
-def get_sbb_receipt_url(messages, mid):
-    mres = messages.get(userId='me', id=mid).execute()
+def get_sbb_receipt_url(mres):
     datab64 = mres['payload']['body']['data']
     data = base64.b64decode(datab64).decode()
     for line in data.split("\n"):
         line = line.strip()
         if line.find("https://www")>-1 and line.find(".pdf")>-1:
             return line
+
+
+def get_message(messages, mid):
+    return messages.get(userId='me', id=mid).execute()
 
 
 def main():
@@ -69,15 +74,31 @@ def main():
 
     find_num = res["resultSizeEstimate"]
     print("Found %i matching messages" % find_num)
-    for message in res["messages"]:
-        url = get_sbb_receipt_url(messages, message['id'])
-        bname = os.path.basename(url)
-        dlpath = "%s/%s" % (DOWNLOAD_PATH, bname)
-        if not os.path.exists(dlpath):
-            print("Downloading %s" % bname)
-            urllib.request.urlretrieve(url, dlpath)
-        else:
+    for message_id in res["messages"]:
+        glob_str = "%s/*_%s.pdf" % (
+            DOWNLOAD_PATH,
+            message_id['id']
+        )
+        matches = glob.glob(glob_str)
+        if matches:
+            bname = os.path.basename(matches[0])
             print("Receipt %s allready exists on file system" % bname)
+            continue
+
+        message = get_message(messages, message_id['id'])
+        msg_date = datetime.datetime.fromtimestamp(
+            int(message['internalDate'])/1000
+        ).strftime('%Y-%m-%d-%H%M')
+        filename = "%s/%s_%s.pdf" % (
+            DOWNLOAD_PATH,
+            msg_date,
+            message_id['id']
+        )
+        
+        bname = os.path.basename(filename)
+        print("Downloading %s" % bname)
+        url = get_sbb_receipt_url(message)
+        urllib.request.urlretrieve(url, filename)
 
 
 
