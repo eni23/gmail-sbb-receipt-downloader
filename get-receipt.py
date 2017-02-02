@@ -53,7 +53,7 @@ def get_sbb_receipt_url(mres):
     data = base64.b64decode(datab64).decode()
     for line in data.split("\n"):
         line = line.strip()
-        if line.find("https://www")>-1 and line.find(".pdf")>-1:
+        if line.startswith("https://www") and line.endswith(".pdf"):
             return line
 
 
@@ -94,7 +94,7 @@ def main():
             msg_date,
             message_id['id']
         )
-        
+
         bname = os.path.basename(filename)
         print("Downloading %s" % bname)
         url = get_sbb_receipt_url(message)
